@@ -18,82 +18,110 @@
  "players": [
   {
    "id": "t1",
-   "name": "Team 1",
+   "name": "AK",
    "sleeperRosterId": 1,
    "active": true
   },
   {
    "id": "t2",
-   "name": "Team 2",
+   "name": "SS",
    "sleeperRosterId": 2,
    "active": true
   },
   {
    "id": "t3",
-   "name": "Team 3",
+   "name": "NS",
    "sleeperRosterId": 3,
    "active": true
   },
   {
    "id": "t4",
-   "name": "Team 4",
+   "name": "ABaw",
    "sleeperRosterId": 4,
    "active": true
   },
   {
    "id": "t5",
-   "name": "Team 5",
+   "name": "PR",
    "sleeperRosterId": 5,
    "active": true
   },
   {
    "id": "t6",
-   "name": "Team 6",
+   "name": "MK",
    "sleeperRosterId": 6,
    "active": true
   },
   {
    "id": "t7",
-   "name": "Team 7",
+   "name": "NB",
    "sleeperRosterId": 7,
    "active": true
   },
   {
    "id": "t8",
-   "name": "Team 8",
+   "name": "JY",
    "sleeperRosterId": 8,
    "active": true
   },
   {
    "id": "t9",
-   "name": "Team 9",
+   "name": "MG",
    "sleeperRosterId": 9,
    "active": true
   },
   {
    "id": "t10",
-   "name": "Team 10",
+   "name": "NK",
    "sleeperRosterId": 10,
    "active": true
   },
   {
    "id": "t11",
-   "name": "Team 11",
+   "name": "ABaj",
    "sleeperRosterId": 11,
    "active": true
   },
   {
    "id": "t12",
-   "name": "Team 12",
+   "name": "MP",
    "sleeperRosterId": 12,
    "active": true
   }
  ],
  "ice": {},
  "iceDetail": {},
- "buyouts": {},
- "penalties": {},
- "buyoutCollected": {},
+ "buyouts": {
+  "1:t8": {
+   "count": 1,
+   "nflPlayerIds": [
+    "HOU"
+   ]
+  },
+  "1:t3": {
+   "count": 1,
+   "nflPlayerIds": [
+    "9756"
+   ]
+  },
+  "3:t9": {
+   "count": 1,
+   "nflPlayerIds": [
+    "NE"
+   ]
+  }
+ },
+ "penalties": {
+  "2:t11": {
+   "count": 1,
+   "reason": "delinquent"
+  }
+ },
+ "buyoutCollected": {
+  "t8": 40,
+  "t3": 40,
+  "t9": 40
+ },
  "buyoutPlan": "",
  "weekMeta": {},
  "champion": null,

@@ -23,10 +23,10 @@ const KEY='ffl-tracker:v1',NK='ffl-tracker:playerNames:v1',API='https://api.slee
 const R=Array.from({length:12},(_,i)=>[i+1,'Team '+(i+1)]);
 const mk=()=>({schemaVersion:1,config:{title:'Fantasy League',iceWeeks:17,prizeWeeks:14,buyIn:100,weeklyPayout:10,runnerUpPayout:350,winnerPayout:710,iceBuyoutPrice:40,sleeperLeagueId:'1389738441029226496',iceRule:'starters',iceDeadline:''},
 players:R.map(([r,n])=>({id:'t'+r,name:n,sleeperRosterId:r,active:true})),weeklyWinners:{},ice:{},iceDetail:{},buyouts:{},penalties:{},buyoutCollected:{},buyoutPlan:'',weekMeta:{},champion:null,runnerUp:null,settled:{},notes:''});
-let S=load(),tab='pay',sel=null,rep=[],busy=false,ow=false,rw=1;
+let S=load(),fromFile=false,tab='pay',sel=null,rep=[],busy=false,ow=false,rw=1;
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));return s?merge(s):mk()}catch(e){return mk()}}
-function merge(o){const d=mk();if(!o||typeof o!='object'||!Array.isArray(o.players))throw Error('bad');const s=Object.assign(d,o);s.config=Object.assign(d.config,o.config||{});clamp(s);return s}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function merge(o,nc){const d=mk();if(!o||typeof o!='object'||!Array.isArray(o.players))throw Error('bad');const s=Object.assign(d,o);s.config=Object.assign(d.config,o.config||{});if(!nc)clamp(s);return s}
+function save(){if(fromFile)return;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money=n=>'$'+Math.round(n).toLocaleString(),W=n=>Array.from({length:n},(_,i)=>i+1),C=()=>S.config;
 const nm=id=>(S.players.find(p=>p.id==id)||{name:id||'—'}).name,key=(w,p)=>w+':'+p;
@@ -44,7 +44,7 @@ function recon(){let ice=0,pen=0,bought=0,served=0;const w=[];
  if(S.champion&&S.champion==S.runnerUp)w.push('Champion and runner-up are the same person');
  const ns=S.players.map(p=>p.name.toLowerCase());if(new Set(ns).size<ns.length)w.push('Duplicate player names');
  const rs=S.players.map(p=>p.sleeperRosterId).filter(Boolean);if(S.players.some(p=>!p.sleeperRosterId))w.push('Unmapped Sleeper roster');if(new Set(rs).size<rs.length)w.push('Two people mapped to the same roster');
- Object.keys(S.weekMeta).forEach(k=>{const m=S.weekMeta[k];if(m.tied)w.push('Week '+k+' tied for high score: pick the winner in Payouts');if(m.provisional)w.push('Week '+k+' is provisional: games may still be in progress')});
+ Object.keys(S.weekMeta).forEach(k=>{const m=S.weekMeta[k];if(m.provisional)w.push('Week '+k+' is provisional: games may still be in progress')});
  const owedFund=bought*C().iceBuyoutPrice,got=Object.values(S.buyoutCollected).reduce((a,b)=>a+b,0);
  if(got<owedFund)w.push(money(owedFund-got)+' of buyout money not collected yet');if(got>owedFund)w.push('Collected more buyout money than owed');
  return{ice,pen,bought,served,ok:ice+pen==served+bought,w,owedFund,got,col}}
@@ -71,23 +71,24 @@ function apply(T,w,ms,n,prov){const m0=T.weekMeta[w];
  let top=-1,win=[];const scores={};let cnt=0;
  T.players.forEach(p=>{const k=key(w,p.id);delete T.ice[k];delete T.iceDetail[k];const x=res[p.sleeperRosterId];if(!x)return;
   scores[p.id]=x.pts;if(x.ev.length){T.ice[k]=x.ev.length;T.iceDetail[k]=x.ev;cnt+=x.ev.length}
-  if(x.pts>top){top=x.pts;win=[p.id]}else if(x.pts===top)win.push(p.id)});
- const tied=win.length>1;if(!tied&&w<=T.config.prizeWeeks)T.weeklyWinners[w]=win[0];
- T.weekMeta[w]={source:'sleeper',syncedAt:new Date().toISOString(),topScore:top,tied,provisional:prov,scores};clamp(T);
- return 'Week '+w+': '+cnt+' ice'+(tied?', TIED high score':'')+(prov?', provisional':'')}
+  if(x.pts>top){top=x.pts;win=[p.id]}});
+ const tied=false;if(w<=T.config.prizeWeeks)T.weeklyWinners[w]=win[0];
+ T.weekMeta[w]={source:'sleeper',syncedAt:new Date().toISOString(),topScore:top,tied,provisional:prov,scores};
+ return 'Week '+w+': '+cnt+' ice'+(prov?', provisional':'')}
 async function sync(all){busy=true;rep=[];draw();
  try{const st=await gj('/state/nfl'),dw=Math.min(st.display_week||st.week||1,C().iceWeeks),ws=all?W(dw):[dw],T=structuredClone(S),data={};
   await Promise.all(ws.map(async w=>{data[w]=await gj('/league/'+C().sleeperLeagueId+'/matchups/'+w).catch(()=>[])}));
   const ids=new Set();Object.values(data).forEach(ms=>(ms||[]).forEach(m=>(m.starters||[]).concat(Object.keys(m.players_points||{})).forEach(i=>ids.add(i))));
-  const n=await names([...ids]);ws.forEach(w=>rep.push(apply(T,w,data[w],n,w>=st.week)));S=T;save()}catch(e){rep=['Error: '+e.message]}
+  const n=await names([...ids]);ws.forEach(w=>rep.push(apply(T,w,data[w],n,w>=st.week)));clamp(T);S=T;save()}catch(e){rep=['Error: '+e.message]}
  busy=false;draw()}
 async function pull(){try{const l=await gj('/league/'+C().sleeperLeagueId);C().prizeWeeks=(l.settings.playoff_week_start||15)-1;save();rep=['Season '+l.season+'. Prize weeks set to 1–'+C().prizeWeeks+'. Roster: '+(l.roster_positions||[]).join(', ')]}catch(e){rep=['Error: '+e.message]}draw()}
 async function chk(){try{const[u,r]=await Promise.all([gj('/league/'+C().sleeperLeagueId+'/users'),gj('/league/'+C().sleeperLeagueId+'/rosters')]);rep=S.players.map(p=>{const ro=r.find(x=>x.roster_id==p.sleeperRosterId),us=ro&&u.find(x=>x.user_id==ro.owner_id);return p.name+' → roster '+p.sleeperRosterId+': '+(us?us.display_name||us.username:'NOT FOUND')})}catch(e){rep=['Error: '+e.message]}draw()}
+function exp(){const T=structuredClone(S);Object.keys(T.weekMeta).forEach(w=>{if(T.weekMeta[w].source=='sleeper'){delete T.weekMeta[w];delete T.weeklyWinners[w];[T.ice,T.iceDetail].forEach(o=>Object.keys(o).forEach(k=>{if(k.split(':')[0]==w)delete o[k]}))}});return JSON.stringify(T,null,1)}
 /* recap */
 function recap(w){const L=[],m=S.weekMeta[w]||{},sc=m.scores||{},c=C(),pr=c.iceBuyoutPrice;
  L.push(c.title.toUpperCase()+' — WEEK '+w+' RECAP','');if(m.provisional)L.push('⚠ Games still in progress. Scores can change.','');
  const rk=Object.entries(sc).sort((a,b)=>b[1]-a[1]);
- if(rk.length){const wn=S.weeklyWinners[w];if(m.tied)L.push('High score: TIE at '+m.topScore.toFixed(2)+'. Commissioner picks.');else if(wn)L.push('High score: '+nm(wn)+' with '+(sc[wn]||0).toFixed(2)+(w<=c.prizeWeeks?', takes the '+money(c.weeklyPayout)+'.':'.'));
+ if(rk.length){const wn=S.weeklyWinners[w];if(wn)L.push('High score: '+nm(wn)+' with '+(sc[wn]||0).toFixed(2)+(w<=c.prizeWeeks?', takes the '+money(c.weeklyPayout)+'.':'.'));
   L.push('Top 3: '+rk.slice(0,3).map(([i,s])=>nm(i)+' '+s.toFixed(2)).join(', '),'Basement: '+nm(rk[rk.length-1][0])+' '+rk[rk.length-1][1].toFixed(2))}
  L.push('');const ln=[];
  S.players.forEach(p=>{const k=key(w,p.id),d=S.iceDetail[k];
@@ -108,10 +109,10 @@ function head(){const r=recon(),po=pots(),wl=wall(),c=C();
  const st=[['Pot collected',money(r.col)],['Paid out',money(po.paid)],['Still to award',money(po.left)],['Weeks open',po.open],['Ice incurred',r.ice+r.pen],['Ice served',r.served],['Ice buyouts',r.bought,money(c.iceBuyoutPrice)+' each'],['Buyout pot',money(r.owedFund),money(r.got)+' collected'],['Betas',wl.length,wl[0]?wl[0].p.name:'']];
  return `<h1>${esc(c.title)}</h1><div class="stats">${st.map(s=>`<div class="st"><small>${s[0]}</small><b>${s[1]}</b><small>${esc(s[2]||'')}</small></div>`).join('')}</div>
  <div class="rec">${r.ice} starters scored 0 or less + ${r.pen} penalty → ${r.served} served + ${r.bought} bought out · ${r.ok?'balanced':'<b style="color:var(--bad)">NOT BALANCED</b>'}</div>${r.w.map(x=>`<div class="warn">${esc(x)}</div>`).join('')}
- <nav>${[['pay','Payouts'],['rc','Recap'],['ice','Ice'],['pot','Pots'],['sh','Shame'],['sy','Sleeper'],['se','Settings']].map(([k,n])=>`<button data-a="tab" data-v="${k}" class="${tab==k?'on':''}">${n}</button>`).join('')}</nav>`}
+ ${fromFile?'<div class="warn">Hard-coded data loaded from season.json; ice is pulled live from Sleeper. Edits made on this page last only until you refresh. To keep them, copy the data and paste it into season.json on GitHub. <button class="b g" data-a="bk">Copy season.json</button></div>':''}<nav>${[['pay','Payouts'],['rc','Recap'],['ice','Ice'],['pot','Pots'],['sh','Shame'],['sy','Sleeper']].map(([k,n])=>`<button data-a="tab" data-v="${k}" class="${tab==k?'on':''}">${n}</button>`).join('')}</nav>`}
 const sel_=(a,v,opts,extra='')=>`<select data-c="${a}" ${extra}>${opts}</select>`,opt=(v,t,s)=>`<option value="${esc(v)}" ${s?'selected':''}>${esc(t)}</option>`;
 const plOpts=cur=>opt('','—',!cur)+S.players.filter(p=>p.active).map(p=>opt(p.id,p.name,p.id==cur)).join('');
-function vPay(){const po=pots();return `<div class="card"><b>Weekly high score</b> (${money(C().weeklyPayout)} each)${W(C().prizeWeeks).map(w=>{const m=S.weekMeta[w];return `<div class="row"><span style="width:52px">Wk ${w}</span>${sel_('win',w,plOpts(S.weeklyWinners[w]),'data-k="'+w+'"')}${m&&m.tied?'<span class="m">tied: pick one</span>':''}</div>`}).join('')}</div>
+function vPay(){const po=pots();return `<div class="card"><b>Weekly high score</b> (${money(C().weeklyPayout)} each, from live Sleeper scores)${W(C().prizeWeeks).map(w=>{const m=S.weekMeta[w],wn=S.weeklyWinners[w];return `<div class="row"><span style="width:52px">Wk ${w}</span>${wn?`<b>${esc(nm(wn))}</b> <span class="m">${m&&m.scores?(m.scores[wn]||0).toFixed(2):''}</span>`:'<span class="m">not played yet</span>'}</div>`}).join('')}</div>
  <div class="card"><div class="row"><span style="width:80px">Champion</span>${sel_('champ','',plOpts(S.champion))} ${money(C().winnerPayout)}</div><div class="row"><span style="width:80px">Runner-up</span>${sel_('runner','',plOpts(S.runnerUp))} ${money(C().runnerUpPayout)}</div>
  <p class="m">Awarded ${money(po.paid)} · still to award ${money(po.left)}</p></div>`}
 function vIce(){const ps=S.players;
@@ -152,26 +153,20 @@ function vSy(){const c=C();return `<div class="card"><div class="row">League ID 
  <button class="b" data-a="s1" ${busy?'disabled':''}>Sync latest week</button><button class="b" data-a="sa" ${busy?'disabled':''}>Backfill all weeks</button><button class="b g" data-a="pull">Pull league settings</button><button class="b g" data-a="chk">Check roster mapping</button><button class="b g" data-a="cn">Clear name cache</button>
  ${busy?'<p>Syncing…</p>':''}${rep.map(x=>`<div class="m">${esc(x)}</div>`).join('')}</div>
  <div class="card sc"><b>Provenance</b><table><tr><th>Wk</th><th>Source</th><th>Synced</th><th>Top</th></tr>${Object.keys(S.weekMeta).sort((a,b)=>a-b).map(w=>{const m=S.weekMeta[w];return `<tr><td>${w}</td><td>${m.source}${m.provisional?' · provisional':''}</td><td>${m.syncedAt?new Date(m.syncedAt).toLocaleString():''}</td><td>${m.topScore??''}</td></tr>`}).join('')}</table></div>`}
-function vSe(){const c=C(),f=[['buyIn','Buy-in'],['weeklyPayout','Weekly prize'],['winnerPayout','Champion'],['runnerUpPayout','Runner-up'],['iceBuyoutPrice','Buyout per ice'],['prizeWeeks','Prize weeks'],['iceWeeks','Ice weeks']];
- return `<div class="card"><div class="row"><span style="width:110px">League name</span><input data-c="title" value="${esc(c.title)}"></div>${f.map(([k,l])=>`<div class="row"><span style="width:110px">${l}</span><input type="number" data-c="cfg" data-id="${k}" value="${c[k]}"></div>`).join('')}</div>
- <div class="card"><b>Roster</b>${S.players.map((p,i)=>`<div class="row"><input data-c="pn" data-id="${i}" value="${esc(p.name)}" style="width:110px"><select data-c="pr" data-id="${i}">${opt('','unmapped',!p.sleeperRosterId)}${W(12).map(n=>opt(n,'Roster '+n,n==p.sleeperRosterId)).join('')}</select><label><input type="checkbox" data-c="pa" data-id="${i}" ${p.active?'checked':''}> active</label></div>`).join('')}</div>
- <div class="card"><button class="b" data-a="bk">Copy JSON backup</button><button class="b g" data-a="rs">Restore backup</button><button class="b g" data-a="reset">Reset season</button></div>`}
-function draw(){$('#app').innerHTML=head()+({pay:vPay,rc:vRc,ice:vIce,pot:vPot,sh:vSh,sy:vSy,se:vSe}[tab])()}
+function draw(){$('#app').innerHTML=head()+({pay:vPay,rc:vRc,ice:vIce,pot:vPot,sh:vSh,sy:vSy}[tab])()}
 function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).catch(()=>prompt('Copy this:',t))}
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a,v=t.dataset.v;
  if(a=='tab')tab=v;else if(a=='cell')sel=sel==v?null:v;else if(a=='s1')return sync(false);else if(a=='sa')return sync(true);else if(a=='pull')return pull();else if(a=='chk')return chk();
  else if(a=='cn'){localStorage.removeItem(NK);rep=['Name cache cleared']}
  else if(a=='copy')return copy($('#'+v).textContent);
  else if(a=='paid'){S.buyoutCollected[v]=tot(v).bought*C().iceBuyoutPrice}
- else if(a=='bk')return copy(JSON.stringify(S));
- else if(a=='rs'){const s=prompt('Paste backup JSON');if(!s)return;try{S=merge(JSON.parse(s))}catch(x){return alert('Invalid backup')}}
- else if(a=='reset'){if(!confirm('Clear all season data and keep settings?'))return;const c=S.config,p=S.players;S=mk();S.config=c;S.players=p}
+ else if(a=='bk')return copy(exp());
  save();draw()});
 document.addEventListener('change',e=>{const t=e.target,c=t.dataset.c;if(!c)return;const v=t.value,n=Math.max(0,parseFloat(v)||0),id=t.dataset.id,k=t.dataset.k;
- if(c=='win')S.weeklyWinners[k]=v||null;else if(c=='champ')S.champion=v||null;else if(c=='runner')S.runnerUp=v||null;
- else if(c=='rw'){rw=+v;return draw()}else if(c=='title')C().title=v.trim()||'Fantasy League';else if(c=='dl')C().iceDeadline=v;else if(c=='lid')C().sleeperLeagueId=v.replace(/\D/g,'');else if(c=='rule')C().iceRule=v;else if(c=='ow'){ow=t.checked;return}
+ if(c=='champ')S.champion=v||null;else if(c=='runner')S.runnerUp=v||null;
+ else if(c=='rw'){rw=+v;return draw()}else if(c=='dl')C().iceDeadline=v;else if(c=='lid')C().sleeperLeagueId=v.replace(/\D/g,'');else if(c=='rule')C().iceRule=v;else if(c=='ow'){ow=t.checked;return}
  else if(c=='settled')S.settled[id]=t.checked;else if(c=='coll')S.buyoutCollected[id]=n;else if(c=='plan')S.buyoutPlan=v;else if(c=='notes')S.notes=v;
- else if(c=='cfg')C()[id]=n;else if(c=='pn')S.players[id].name=v.trim()||S.players[id].name;else if(c=='pr')S.players[id].sleeperRosterId=v?+v:null;else if(c=='pa')S.players[id].active=t.checked;
+ 
  else if(sel){const[w]=sel.split(':');
   if(c=='icecnt'){if(n)S.ice[sel]=n;else delete S.ice[sel];delete S.iceDetail[sel];S.weekMeta[w]=Object.assign({syncedAt:null,topScore:null,tied:false,provisional:false},S.weekMeta[w],{source:'manual'});clamp(S)}
   else if(c=='pen'){const r=(S.penalties[sel]||{}).reason||'delinquent';if(n)S.penalties[sel]={count:n,reason:r};else delete S.penalties[sel];clamp(S)}
@@ -179,5 +174,6 @@ document.addEventListener('change',e=>{const t=e.target,c=t.dataset.c;if(!c)retu
   else if(c=='bo'){const b=S.buyouts[sel]||{count:0,nflPlayerIds:[]};b.nflPlayerIds=b.nflPlayerIds.filter(x=>x!=id);if(t.checked)b.nflPlayerIds.push(id);b.count=b.nflPlayerIds.length;S.buyouts[sel]=b;clamp(S)}
   else if(c=='bocnt'){S.buyouts[sel]={count:Math.min(n,ow_(...sel.split(':'))),nflPlayerIds:[]};clamp(S)}}
  save();draw()});
-draw();
+(async()=>{let f=false;try{const r=await fetch('season.json?'+Date.now());if(r.ok){S=merge(await r.json(),true);f=true;fromFile=true}}catch(e){rep=['season.json problem: '+e.message]}
+ draw();if(f&&C().sleeperLeagueId)sync(true)})();
 </script></body></html>

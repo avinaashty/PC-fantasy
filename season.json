@@ -1,0 +1,102 @@
+{
+ "_help": "Hard-coded league data. Edit on GitHub, commit, refresh the site. Ice from Sleeper is pulled live; only your hand data lives here.",
+ "schemaVersion": 1,
+ "config": {
+  "title": "Fantasy League",
+  "iceWeeks": 17,
+  "prizeWeeks": 14,
+  "buyIn": 100,
+  "weeklyPayout": 10,
+  "runnerUpPayout": 350,
+  "winnerPayout": 710,
+  "iceBuyoutPrice": 40,
+  "sleeperLeagueId": "1389738441029226496",
+  "iceRule": "starters",
+  "iceDeadline": ""
+ },
+ "players": [
+  {
+   "id": "t1",
+   "name": "Team 1",
+   "sleeperRosterId": 1,
+   "active": true
+  },
+  {
+   "id": "t2",
+   "name": "Team 2",
+   "sleeperRosterId": 2,
+   "active": true
+  },
+  {
+   "id": "t3",
+   "name": "Team 3",
+   "sleeperRosterId": 3,
+   "active": true
+  },
+  {
+   "id": "t4",
+   "name": "Team 4",
+   "sleeperRosterId": 4,
+   "active": true
+  },
+  {
+   "id": "t5",
+   "name": "Team 5",
+   "sleeperRosterId": 5,
+   "active": true
+  },
+  {
+   "id": "t6",
+   "name": "Team 6",
+   "sleeperRosterId": 6,
+   "active": true
+  },
+  {
+   "id": "t7",
+   "name": "Team 7",
+   "sleeperRosterId": 7,
+   "active": true
+  },
+  {
+   "id": "t8",
+   "name": "Team 8",
+   "sleeperRosterId": 8,
+   "active": true
+  },
+  {
+   "id": "t9",
+   "name": "Team 9",
+   "sleeperRosterId": 9,
+   "active": true
+  },
+  {
+   "id": "t10",
+   "name": "Team 10",
+   "sleeperRosterId": 10,
+   "active": true
+  },
+  {
+   "id": "t11",
+   "name": "Team 11",
+   "sleeperRosterId": 11,
+   "active": true
+  },
+  {
+   "id": "t12",
+   "name": "Team 12",
+   "sleeperRosterId": 12,
+   "active": true
+  }
+ ],
+ "ice": {},
+ "iceDetail": {},
+ "buyouts": {},
+ "penalties": {},
+ "buyoutCollected": {},
+ "buyoutPlan": "",
+ "weekMeta": {},
+ "champion": null,
+ "runnerUp": null,
+ "settled": {},
+ "notes": ""
+}

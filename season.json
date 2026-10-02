@@ -12,7 +12,8 @@
   "iceBuyoutPrice": 40,
   "sleeperLeagueId": "1389738441029226496",
   "iceRule": "starters",
-  "iceDeadline": ""
+  "iceDeadline": "",
+  "seasonStart": "2026-09-10"
  },
  "players": [
   {

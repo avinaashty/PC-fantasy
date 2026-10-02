@@ -21,7 +21,7 @@ input,select,textarea{font:inherit;padding:7px;border:1px solid var(--line);bord
 <script>
 const KEY='ffl-tracker:v1',NK='ffl-tracker:playerNames:v1',API='https://api.sleeper.app/v1';
 const R=Array.from({length:12},(_,i)=>[i+1,'Team '+(i+1)]);
-const mk=()=>({schemaVersion:1,config:{title:'Fantasy League',iceWeeks:17,prizeWeeks:14,buyIn:100,weeklyPayout:10,runnerUpPayout:350,winnerPayout:710,iceBuyoutPrice:40,sleeperLeagueId:'1389738441029226496',iceRule:'starters',iceDeadline:''},
+const mk=()=>({schemaVersion:1,config:{title:'Fantasy League',iceWeeks:17,prizeWeeks:14,buyIn:100,weeklyPayout:10,runnerUpPayout:350,winnerPayout:710,iceBuyoutPrice:40,sleeperLeagueId:'1389738441029226496',seasonStart:'2026-09-10',iceRule:'starters',iceDeadline:''},
 players:R.map(([r,n])=>({id:'t'+r,name:n,sleeperRosterId:r,active:true})),weeklyWinners:{},ice:{},iceDetail:{},buyouts:{},penalties:{},buyoutCollected:{},buyoutPlan:'',weekMeta:{},champion:null,runnerUp:null,settled:{},notes:''});
 let S=load(),fromFile=false,tab='pay',sel=null,rep=[],busy=false,ow=false,rw=1;
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));return s?merge(s):mk()}catch(e){return mk()}}
@@ -39,6 +39,7 @@ function recon(){let ice=0,pen=0,bought=0,served=0;const w=[];
  S.players.forEach(p=>{const t=tot(p.id);ice+=t.ice;pen+=t.pen;bought+=t.bought;served+=t.served});
  [S.ice,S.buyouts,S.penalties].forEach(o=>Object.keys(o).forEach(k=>{const n=+k.split(':')[0];if(n<1||n>C().iceWeeks)w.push('Record outside weeks 1–'+C().iceWeeks+': '+k)}));
  Object.keys(S.buyouts).forEach(k=>{const[a,b]=k.split(':');if(S.buyouts[k].count>ow_(a,b))w.push('Buyout larger than owed: '+k)});
+ if(new Date(C().seasonStart+'T12:00:00Z').getUTCDay()!=4)w.push('seasonStart in season.json should be the opening Thursday (week 1 kickoff)');
  const col=S.players.filter(p=>p.active).length*C().buyIn,sch=C().prizeWeeks*C().weeklyPayout+C().winnerPayout+C().runnerUpPayout;
  if(col!=sch)w.push('Pot collected '+money(col)+' ≠ scheduled payouts '+money(sch));
  if(S.champion&&S.champion==S.runnerUp)w.push('Champion and runner-up are the same person');
@@ -76,12 +77,12 @@ function apply(T,w,ms,n,prov){const m0=T.weekMeta[w];
  T.weekMeta[w]={source:'sleeper',syncedAt:new Date().toISOString(),topScore:top,tied,provisional:prov,scores};
  return 'Week '+w+': '+cnt+' ice'+(prov?', provisional':'')}
 const ET=(y,m,d,h)=>{const t=Date.UTC(y,m,d,h),p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(new Date(t)).filter(x=>x.type!='literal').map(x=>[x.type,+x.value]));return t-(Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute)-t)};
-const relAt=(st,w)=>{const[y,m,d]=st.season_start_date.split('-').map(Number);return ET(y,m-1,d+(w-1)*7+5,9)};
+const relAt=w=>{const[y,m,d]=C().seasonStart.split('-').map(Number);return ET(y,m-1,d+(w-1)*7+5,9)};
 const fmtET=t=>new Date(t).toLocaleString('en-US',{timeZone:'America/New_York',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';
 async function sync(all){busy=true;rep=[];draw();
- try{const st=await gj('/state/nfl'),L=W(C().iceWeeks),now=Date.now(),has=!!st.season_start_date,ok=w=>has?now>=relAt(st,w):w<(st.week||1),done=L.filter(ok),ws=all?done:done.slice(-1),T=structuredClone(S),data={};
+ try{const L=W(C().iceWeeks),now=Date.now(),ok=w=>now>=relAt(w),done=L.filter(ok),ws=all?done:done.slice(-1),T=structuredClone(S),data={};
   L.filter(w=>!ok(w)).forEach(w=>{const m=T.weekMeta[w];if(m&&m.source=='sleeper'){delete T.weekMeta[w];delete T.weeklyWinners[w];[T.ice,T.iceDetail].forEach(o=>Object.keys(o).forEach(k=>{if(k.split(':')[0]==w)delete o[k]}))}});
-  const nx=L.find(w=>!ok(w));if(!has)rep.push('Sleeper gave no season start date; using its current week instead of the Tuesday 9 AM ET rule.');else if(nx)rep.push('Week '+nx+' results are released '+fmtET(relAt(st,nx))+'.');if(!done.length)rep.push('No weeks released yet.');
+  const nx=L.find(w=>!ok(w));if(nx)rep.push('Week '+nx+' results are released '+fmtET(relAt(nx))+'.');if(!done.length)rep.push('No weeks released yet.');
   await Promise.all(ws.map(async w=>{data[w]=await gj('/league/'+C().sleeperLeagueId+'/matchups/'+w).catch(()=>[])}));
   const ids=new Set();Object.values(data).forEach(ms=>(ms||[]).forEach(m=>(m.starters||[]).concat(Object.keys(m.players_points||{})).forEach(i=>ids.add(i))));
   const n=await names([...ids]);ws.forEach(w=>rep.push(apply(T,w,data[w],n,false)));clamp(T);S=T;save()}catch(e){rep=['Error: '+e.message]}

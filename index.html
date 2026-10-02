@@ -75,11 +75,16 @@ function apply(T,w,ms,n,prov){const m0=T.weekMeta[w];
  const tied=false;if(w<=T.config.prizeWeeks)T.weeklyWinners[w]=win[0];
  T.weekMeta[w]={source:'sleeper',syncedAt:new Date().toISOString(),topScore:top,tied,provisional:prov,scores};
  return 'Week '+w+': '+cnt+' ice'+(prov?', provisional':'')}
+const ET=(y,m,d,h)=>{const t=Date.UTC(y,m,d,h),p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(new Date(t)).filter(x=>x.type!='literal').map(x=>[x.type,+x.value]));return t-(Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute)-t)};
+const relAt=(st,w)=>{const[y,m,d]=st.season_start_date.split('-').map(Number);return ET(y,m-1,d+(w-1)*7+5,9)};
+const fmtET=t=>new Date(t).toLocaleString('en-US',{timeZone:'America/New_York',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';
 async function sync(all){busy=true;rep=[];draw();
- try{const st=await gj('/state/nfl'),dw=Math.min(st.display_week||st.week||1,C().iceWeeks),ws=all?W(dw):[dw],T=structuredClone(S),data={};
+ try{const st=await gj('/state/nfl'),L=W(C().iceWeeks),now=Date.now(),has=!!st.season_start_date,ok=w=>has?now>=relAt(st,w):w<(st.week||1),done=L.filter(ok),ws=all?done:done.slice(-1),T=structuredClone(S),data={};
+  L.filter(w=>!ok(w)).forEach(w=>{const m=T.weekMeta[w];if(m&&m.source=='sleeper'){delete T.weekMeta[w];delete T.weeklyWinners[w];[T.ice,T.iceDetail].forEach(o=>Object.keys(o).forEach(k=>{if(k.split(':')[0]==w)delete o[k]}))}});
+  const nx=L.find(w=>!ok(w));if(!has)rep.push('Sleeper gave no season start date; using its current week instead of the Tuesday 9 AM ET rule.');else if(nx)rep.push('Week '+nx+' results are released '+fmtET(relAt(st,nx))+'.');if(!done.length)rep.push('No weeks released yet.');
   await Promise.all(ws.map(async w=>{data[w]=await gj('/league/'+C().sleeperLeagueId+'/matchups/'+w).catch(()=>[])}));
   const ids=new Set();Object.values(data).forEach(ms=>(ms||[]).forEach(m=>(m.starters||[]).concat(Object.keys(m.players_points||{})).forEach(i=>ids.add(i))));
-  const n=await names([...ids]);ws.forEach(w=>rep.push(apply(T,w,data[w],n,w>=st.week)));clamp(T);S=T;save()}catch(e){rep=['Error: '+e.message]}
+  const n=await names([...ids]);ws.forEach(w=>rep.push(apply(T,w,data[w],n,false)));clamp(T);S=T;save()}catch(e){rep=['Error: '+e.message]}
  busy=false;draw()}
 async function pull(){try{const l=await gj('/league/'+C().sleeperLeagueId);C().prizeWeeks=(l.settings.playoff_week_start||15)-1;save();rep=['Season '+l.season+'. Prize weeks set to 1–'+C().prizeWeeks+'. Roster: '+(l.roster_positions||[]).join(', ')]}catch(e){rep=['Error: '+e.message]}draw()}
 async function chk(){try{const[u,r]=await Promise.all([gj('/league/'+C().sleeperLeagueId+'/users'),gj('/league/'+C().sleeperLeagueId+'/rosters')]);rep=S.players.map(p=>{const ro=r.find(x=>x.roster_id==p.sleeperRosterId),us=ro&&u.find(x=>x.user_id==ro.owner_id);return p.name+' → roster '+p.sleeperRosterId+': '+(us?us.display_name||us.username:'NOT FOUND')})}catch(e){rep=['Error: '+e.message]}draw()}
@@ -112,7 +117,7 @@ function head(){const r=recon(),po=pots(),wl=wall(),c=C();
  ${fromFile?'<div class="warn">Hard-coded data loaded from season.json; ice is pulled live from Sleeper. Edits made on this page last only until you refresh. To keep them, copy the data and paste it into season.json on GitHub. <button class="b g" data-a="bk">Copy season.json</button></div>':''}<nav>${[['pay','Payouts'],['rc','Recap'],['ice','Ice'],['pot','Pots'],['sh','Shame'],['sy','Sleeper']].map(([k,n])=>`<button data-a="tab" data-v="${k}" class="${tab==k?'on':''}">${n}</button>`).join('')}</nav>`}
 const sel_=(a,v,opts,extra='')=>`<select data-c="${a}" ${extra}>${opts}</select>`,opt=(v,t,s)=>`<option value="${esc(v)}" ${s?'selected':''}>${esc(t)}</option>`;
 const plOpts=cur=>opt('','—',!cur)+S.players.filter(p=>p.active).map(p=>opt(p.id,p.name,p.id==cur)).join('');
-function vPay(){const po=pots();return `<div class="card"><b>Weekly high score</b> (${money(C().weeklyPayout)} each, from live Sleeper scores)${W(C().prizeWeeks).map(w=>{const m=S.weekMeta[w],wn=S.weeklyWinners[w];return `<div class="row"><span style="width:52px">Wk ${w}</span>${wn?`<b>${esc(nm(wn))}</b> <span class="m">${m&&m.scores?(m.scores[wn]||0).toFixed(2):''}</span>`:'<span class="m">not played yet</span>'}</div>`}).join('')}</div>
+function vPay(){const po=pots();return `<div class="card"><b>Weekly high score</b> (${money(C().weeklyPayout)} each, from live Sleeper scores)${W(C().prizeWeeks).map(w=>{const m=S.weekMeta[w],wn=S.weeklyWinners[w];return `<div class="row"><span style="width:52px">Wk ${w}</span>${wn?`<b>${esc(nm(wn))}</b> <span class="m">${m&&m.scores?(m.scores[wn]||0).toFixed(2):''}</span>`:'<span class="m">pending (final Tuesday 9 AM ET)</span>'}</div>`}).join('')}</div>
  <div class="card"><div class="row"><span style="width:80px">Champion</span>${sel_('champ','',plOpts(S.champion))} ${money(C().winnerPayout)}</div><div class="row"><span style="width:80px">Runner-up</span>${sel_('runner','',plOpts(S.runnerUp))} ${money(C().runnerUpPayout)}</div>
  <p class="m">Awarded ${money(po.paid)} · still to award ${money(po.left)}</p></div>`}
 function vIce(){const ps=S.players;

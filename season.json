@@ -109,6 +109,12 @@
    "nflPlayerIds": [
     "NE"
    ]
+  },
+  "4:t8": {
+   "count": 1
+  },
+  "4:t4": {
+   "count": 1
   }
  },
  "penalties": {
@@ -118,9 +124,10 @@
   }
  },
  "buyoutCollected": {
-  "t8": 40,
+  "t8": 80,
   "t3": 40,
-  "t9": 40
+  "t9": 40,
+  "t4": 40
  },
  "buyoutPlan": "",
  "weekMeta": {},

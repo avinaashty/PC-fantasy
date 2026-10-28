@@ -121,6 +121,9 @@
   },
   "5:t2": {
    "count": 1
+  },
+  "6:t11": {
+   "count": 1
   }
  },
  "penalties": {
@@ -131,6 +134,10 @@
   "5:t4": {
    "count": 1,
    "reason": "late"
+  },
+  "6:t11": {
+   "count": 1,
+   "reason": "delinquent"
   }
  },
  "buyoutCollected": {
@@ -138,7 +145,8 @@
   "t3": 40,
   "t9": 40,
   "t4": 120,
-  "t2": 40
+  "t2": 40,
+  "t11": 40
  },
  "buyoutPlan": "",
  "weekMeta": {},
